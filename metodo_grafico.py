@@ -16,34 +16,50 @@ except ImportError:
 
 
 def _to_float(value):
+    # Las fracciones se usan para calcular con exactitud, pero matplotlib
+    # necesita valores decimales para poder dibujarlos.
     if hasattr(value, 'num') and hasattr(value, 'den'):
         return float(value.num / value.den)
     return float(value)
 
 
 def _graficar_region(factibles, restricciones, mejor, tipo):
+    # Esta función solo se encarga de mostrar el resultado calculado.
+    # La búsqueda de la solución óptima ocurre en metodo_grafico().
     if plt is None:
         print("\nNo se pudo mostrar la gráfica porque matplotlib no está instalado.")
         return
 
+    # Sin puntos factibles no existe una región que se pueda dibujar.
     if not factibles:
         return
 
+    # Se convierten los vértices a decimales porque matplotlib no trabaja
+    # directamente con la clase Frac.
     puntos = [(_to_float(x), _to_float(y)) for x, y, _ in factibles]
+    # (x0, y0) es el centro aproximado de los puntos. Se utiliza para ordenar
+    # los vértices alrededor del centro y formar el contorno del polígono.
     x0, y0 = sum(p[0] for p in puntos) / len(puntos), sum(p[1] for p in puntos) / len(puntos)
 
     def angulo(p):
+        # atan2 devuelve el ángulo del punto respecto al centro aproximado.
         dx = p[0] - x0
         dy = p[1] - y0
         return math.atan2(dy, dx)
 
+    # Se eliminan puntos repetidos y se ordenan para que el relleno una los
+    # vértices en el orden correcto.
     hull = sorted(set(puntos), key=angulo)
     if len(hull) < 3:
+        # Con menos de tres puntos no hay polígono; se dejan los puntos tal cual.
         hull = puntos
 
+    # El tamaño inicial de los ejes se basa en los vértices factibles.
     x_max = max(max(p[0] for p in puntos), 1)
     y_max = max(max(p[1] for p in puntos), 1)
     for a1, a2, signo, b in restricciones:
+        # También se revisan los cortes con los ejes para que las rectas
+        # completas sean visibles en la gráfica.
         a1f = _to_float(a1)
         a2f = _to_float(a2)
         bf = _to_float(b)
@@ -56,9 +72,11 @@ def _graficar_region(factibles, restricciones, mejor, tipo):
             if y_intercept > 0:
                 y_max = max(y_max, y_intercept)
 
+    # Se deja un margen alrededor de la región para que no quede pegada al borde.
     x_max *= 1.5
     y_max *= 1.5
 
+    # Se crea la figura y se configuran sus ejes, etiquetas y cuadrícula.
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.axhline(0, color='black', linewidth=0.8)
     ax.axvline(0, color='black', linewidth=0.8)
@@ -70,28 +88,37 @@ def _graficar_region(factibles, restricciones, mejor, tipo):
     ax.grid(True, alpha=0.25)
 
     for a1, a2, signo, b in restricciones:
+        # Cada restricción se dibuja como la recta que separa las zonas posibles.
         a1f = _to_float(a1)
         a2f = _to_float(a2)
         bf = _to_float(b)
         x_vals = [0, x_max]
+        # De a1*x1 + a2*x2 = b se despeja x2 para obtener los puntos de la recta.
         y_vals = [((bf - a1f * x) / a2f) if a2f != 0 else 0 for x in x_vals]
         if a2f == 0:
+            # Si a2 es cero, la recta es vertical y se dibuja con axvline.
             ax.axvline(x=bf / a1f if a1f != 0 else 0, linestyle='--', color='gray', linewidth=1.5, alpha=0.8)
         else:
+            # En cualquier otro caso, se dibuja una recta normal.
             ax.plot(x_vals, y_vals, linestyle='--', color='gray', linewidth=1.5, alpha=0.8)
         label = f'{fmt(a1)}x1 + {fmt(a2)}x2 {signo} {fmt(b)}'
         if len(ax.lines) <= len(restricciones):
+            # Se escribe la fórmula de la restricción dentro de la gráfica.
             ax.text(x_max * 0.6, max(y_max * 0.9 - (len(ax.lines) * 0.1 * y_max), 0.2), label, fontsize=8, color='dimgray')
 
+    # Se pinta la región formada por los vértices factibles.
     xs, ys = zip(*hull)
     ax.fill(xs, ys, color='skyblue', alpha=0.5)
+    # Se muestran todos los vértices que pasaron el filtro de restricciones.
     ax.scatter([p[0] for p in puntos], [p[1] for p in puntos], color='navy', s=35, label='Vértices factibles', zorder=3)
 
+    # Se marca en rojo el vértice cuyo valor de Z fue elegido como óptimo.
     mejor_x = _to_float(mejor[0])
     mejor_y = _to_float(mejor[1])
     ax.scatter([mejor_x], [mejor_y], color='red', s=120, zorder=4, label='Óptimo')
     ax.annotate(f'Óptimo\n({fmt(mejor[0])}, {fmt(mejor[1])})', (mejor_x, mejor_y), xytext=(8, 8), textcoords='offset points', color='red', fontsize=9)
 
+    # Se agrega la leyenda, se ajusta el diseño y se guarda la imagen.
     ax.legend(loc='best')
     plt.tight_layout()
     plt.savefig('grafico_programacion_lineal.png', dpi=220, bbox_inches='tight')
@@ -100,9 +127,9 @@ def _graficar_region(factibles, restricciones, mejor, tipo):
 
 
 def metodo_grafico(c, restricciones, tipo):
-    # El método gráfico solo sirve para 2 variables. La idea es sustituir cada
-    # restricción por una línea recta y luego buscar el polígono de soluciones factibles.
+    # El método gráfico solo sirve para 2 variables. Funcion principal para el metodo
     assert len(c) == 2, "El método gráfico solo aplica a problemas de 2 variables."
+    # c contiene los coeficientes de la función objetivo: Z = c1*x1 + c2*x2.
     c1, c2 = c[0], c[1]
 
     # Cada restricción se representa como a1*x1 + a2*x2 = b.
@@ -121,11 +148,15 @@ def metodo_grafico(c, restricciones, tipo):
     n = len(rectas)
     for i in range(n):
         for j in range(i + 1, n):
+            # Se toman dos rectas y se escriben como un sistema de dos ecuaciones.
             a1, a2, b1 = rectas[i]
             a3, a4, b2 = rectas[j]
+            # El determinante indica si las rectas tienen una única intersección.
             det = a1 * a4 - a2 * a3
             if det == Frac(0):
+                # Determinante cero significa rectas paralelas o coincidentes.
                 continue
+            # Regla de Cramer para obtener las coordenadas del punto de corte.
             x1 = (b1 * a4 - b2 * a2) / det
             x2 = (a1 * b2 - a3 * b1) / det
             vertices.append((x1, x2))
@@ -135,14 +166,18 @@ def metodo_grafico(c, restricciones, tipo):
     factibles = []
     vistos = set()
     for (x1, x2) in vertices:
+        # La clave permite identificar el mismo punto aunque aparezca
+        # al intersectar diferentes pares de rectas.
         clave = (x1.num, x1.den, x2.num, x2.den)
         if clave in vistos:
             continue
         vistos.add(clave)
 
+        # Primero se exige que el punto esté en el primer cuadrante.
         es_factible = (x1 >= Frac(0)) and (x2 >= Frac(0))
         if es_factible:
             for (a1, a2, signo, b) in restricciones:
+            # Se evalúa el lado izquierdo de la restricción en el punto.
                 val = a1 * x1 + a2 * x2
                 if signo == '<=' and not (val <= b):
                     es_factible = False
@@ -151,10 +186,12 @@ def metodo_grafico(c, restricciones, tipo):
                 elif signo == '=' and not (val == b):
                     es_factible = False
                 if not es_factible:
+                    # Basta una restricción incumplida para descartar el punto.
                     break
 
         print(f"  ({fmt(x1)}, {fmt(x2)})  ->  {'FACTIBLE' if es_factible else 'no factible'}")
         if es_factible:
+            # Para cada vértice válido se calcula el valor de la función objetivo.
             factibles.append((x1, x2, c1 * x1 + c2 * x2))
 
     if not factibles:
@@ -167,6 +204,7 @@ def metodo_grafico(c, restricciones, tipo):
 
     # En un problema de maximización se escoge el punto con mayor valor de Z;
     # en minimización, el menor valor.
+    # La función max/min compara el tercer elemento de cada tupla: el valor Z.
     mejor = max(factibles, key=lambda t: t[2]) if tipo == 'max' else min(factibles, key=lambda t: t[2])
     x1o, x2o, zo = mejor
     print(f"\n>>> Solución óptima: x1 = {fmt(x1o)}, x2 = {fmt(x2o)}, Z = {fmt(zo)}")
