@@ -11,8 +11,9 @@ except ImportError:
     from metodo_gran_m import metodo_gran_m
 
 
-def pedir_entero(mensaje, minimo=1):
-    while True:
+#pide un numero entero al usuario como ejemplo en la cantidad de coeficientes y las restricciones del problema
+def pedir_entero(mensaje, minimo=1): 
+    while True: #el bucle se repite hasta que el usuario ingrese un valor correcto
         try:
             valor = int(input(mensaje))
             if valor < minimo:
@@ -23,7 +24,8 @@ def pedir_entero(mensaje, minimo=1):
             print("  Entrada inválida, escribe un número entero.")
 
 
-def pedir_numero(mensaje):
+#pide un numero al usuario y pueden ser decimales o fracciones, por ejemplo los coeficientes de cada restriccion
+def pedir_numero(mensaje): 
     while True:
         texto = input(mensaje)
         try:
@@ -32,15 +34,17 @@ def pedir_numero(mensaje):
             print("  Entrada inválida. Usa un entero, decimal (2.5) o fracción (3/4).")
 
 
-def pedir_signo(mensaje):
-    while True:
+#pide el signo de la restriccion y valida que sea <=, >= o =
+def pedir_signo(mensaje): 
+    while True: #se repite hasta que el usuario ingrese un valor correcto
         s = input(mensaje).strip()
         if s in ('<=', '>=', '='):
             return s
         print("  Signo inválido. Escribe exactamente <=, >= o =.")
 
 
-def pedir_tipo(mensaje):
+#pide si el problema es de maximización o minimización y valida que sea max o min
+def pedir_tipo(mensaje): 
     while True:
         s = input(mensaje).strip().lower()
         if s in ('max', 'min'):
@@ -50,13 +54,16 @@ def pedir_tipo(mensaje):
 
 def leer_problema():
     print("\n===== Definición del problema de Programación Lineal =====")
-    n = pedir_entero("Número de variables de decisión: ", 1)
-    tipo = pedir_tipo("¿Maximizar o minimizar Z? (max/min): ")
+    n = pedir_entero("Número de variables de decisión: ", 1) #pide el numero de variables de decision y se guardan en n
+    tipo = pedir_tipo("¿Maximizar o minimizar Z? (max/min): ") #pide si es max o min y se guarda en tipo
 
     print("\nCoeficientes de la función objetivo Z:")
+    #pide los coeficientes de la funcion objetivo y los guarda en c, 
+    # entra en un ciclo for que se repite con el numero de variables de decision que 
+    # ingreso el usuario
     c = [pedir_numero(f"  c{i+1}  (coeficiente de x{i+1}): ") for i in range(n)]
 
-    m = pedir_entero("\nNúmero de restricciones: ", 1)
+    m = pedir_entero("\nNúmero de restricciones: ", 1) 
     restricciones = []
     print("\nPara cada restricción escribe sus coeficientes, el signo y el lado derecho b.")
     for i in range(m):

@@ -1,5 +1,4 @@
 # imprime las tablas de iteraciones
-# Imprime las tablas de iteraciones en la consola, alineando columnas.
 
 def imprimir_tabla(encabezados, filas, titulo=None):
     if titulo:
