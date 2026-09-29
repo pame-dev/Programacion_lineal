@@ -1,17 +1,17 @@
 # Metodo simplex
 
 try:
-    from .aritmetica import Frac, fmt
+    from .numeros import fmt, EPS
     from .tablas import imprimir_tabla
 except ImportError:
-    from aritmetica import Frac, fmt
+    from numeros import fmt, EPS
     from tablas import imprimir_tabla
 
 
 # Valida restricciones
 def validar(restricciones):
     for (*_, signo, b) in restricciones:
-        if signo != '<=' or b < 0:
+        if signo != '<=' or b < -EPS:
             raise ValueError("El simplex estándar requiere restricciones '<=' con b >= 0.")
 
 
@@ -19,7 +19,7 @@ def validar(restricciones):
 def tabla_inicial(restricciones, m):
     tabla = []
     for i, (*coefs, signo, b) in enumerate(restricciones): #cada restriccion se vuelve de igualdad agregando una variable de holgura
-        holguras = [Frac(1) if k == i else Frac(0) for k in range(m)]
+        holguras = [1.0 if k == i else 0.0 for k in range(m)]
         tabla.append(list(coefs) + holguras + [b])
     return tabla
 
@@ -35,7 +35,7 @@ def calcular_cj_zj(tabla, base, c_ext):
 
 # Fila que sale (razón mínima)
 def fila_que_sale(tabla, col):
-    candidatas = [i for i in range(len(tabla)) if tabla[i][col] > 0] # Filas con elementos positivos en la columna
+    candidatas = [i for i in range(len(tabla)) if tabla[i][col] > EPS] # Filas con elementos positivos en la columna
     if not candidatas:
         print(">>> No hay filas con elementos positivos en la columna.")
         return None #el problema es no acotado
@@ -48,7 +48,7 @@ def pivotear(tabla, fila, col):
     tabla[fila] = [v / piv for v in tabla[fila]] #divide la fila pivote por el elemento pivote para que el pivote sea 1
     for i in range(len(tabla)):
         factor = tabla[i][col]
-        if i != fila and factor != 0:
+        if i != fila and abs(factor) > EPS:
             tabla[i] = [v - factor * p for v, p in zip(tabla[i], tabla[fila])]
 #fila nueva = fila vieja - factor * fila pivote, para que el elemento de la columna pivote sea 0
 
@@ -63,7 +63,7 @@ def metodo_simplex(c, restricciones, tipo):
 
     #Minimizar
     c_obj = [-v for v in c] if es_min else list(c)
-    c_ext = c_obj + [Frac(0)] * m
+    c_ext = c_obj + [0.0] * m
     nombres = [f"x{i+1}" for i in range(n_vars)] + [f"s{i+1}" for i in range(m)]
 
     tabla = tabla_inicial(restricciones, m)
@@ -88,7 +88,7 @@ def metodo_simplex(c, restricciones, tipo):
         imprimir_tabla(encabezados, filas_tabla, titulo=f"Iteración {iteracion}")
 
         col_entra = max(range(n_total), key=lambda j: cj_zj[j])
-        if cj_zj[col_entra] <= 0:
+        if cj_zj[col_entra] <= EPS:
             break
 
         fila_sale = fila_que_sale(tabla, col_entra)
@@ -103,7 +103,7 @@ def metodo_simplex(c, restricciones, tipo):
         base[fila_sale] = col_entra
         iteracion += 1
 
-    solucion = {nombre: Frac(0) for nombre in nombres}
+    solucion = {nombre: 0.0 for nombre in nombres}
     for i, k in enumerate(base):
         solucion[nombres[k]] = tabla[i][-1]
 
