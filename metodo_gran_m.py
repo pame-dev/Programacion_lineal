@@ -119,6 +119,65 @@ def _mostrar_forma_aumentada(c_obj, restricciones, nombres, columnas_extra, tabl
     print("  Z = " + _texto_objetivo_m(z_m, z_c, terminos_z))
 
 
+def _fila_texto(fila):
+    """Convierte una fila de números en texto tipo [1,0,1/2,6]."""
+    return "[" + ",".join(fmt(v) for v in fila) + "]"
+
+
+def _fila_texto_m(fila_m, fila_c):
+    """Fila con M simbólica, tipo [3M + 3, 0, -M]."""
+    return "[" + ", ".join(_texto_m(mv, cv, con_parentesis=False) for mv, cv in zip(fila_m, fila_c)) + "]"
+
+
+def _mostrar_filas_nuevas(tabla, b_col, fila_sale, col_entra, etiquetas, costos_m, costos_c, base):
+    """Hace el pivoteo Gauss-Jordan sobre tabla y b_col, imprimiendo cómo se
+    obtiene cada fila nueva: NOMBRE NUEVA = [vieja] -factor[pivote] = [nueva].
+    Al final muestra la fila Cj-Zj con M simbólica, calculada igual."""
+    m = len(tabla)
+    n_total = len(tabla[0])
+
+    # Fila Cj-Zj ANTES del pivoteo, separando la parte de M y la constante.
+    cj_zj_m = [costos_m[j] - sum(costos_m[base[i]] * tabla[i][j] for i in range(m)) for j in range(n_total)]
+    cj_zj_c = [costos_c[j] - sum(costos_c[base[i]] * tabla[i][j] for i in range(m)) for j in range(n_total)]
+    z_m = sum(costos_m[base[i]] * b_col[i] for i in range(m))
+    z_c = sum(costos_c[base[i]] * b_col[i] for i in range(m))
+
+    # 1) Fila pivote: se divide entre el pivote.
+    piv = tabla[fila_sale][col_entra]
+    vieja = tabla[fila_sale] + [b_col[fila_sale]]
+    tabla[fila_sale] = [v / piv for v in tabla[fila_sale]]
+    b_col[fila_sale] = b_col[fila_sale] / piv
+    pivote = tabla[fila_sale] + [b_col[fila_sale]]
+    print(f"\n{etiquetas[fila_sale]} NUEVA (fila pivote) = {_fila_texto(vieja)} / {fmt(piv)} = {_fila_texto(pivote)}")
+
+    # 2) Demás filas: fila vieja - factor * fila pivote.
+    for i in range(m):
+        if i == fila_sale:
+            continue
+        factor = tabla[i][col_entra]
+        vieja = tabla[i] + [b_col[i]]
+        if abs(factor) > EPS:
+            tabla[i] = [tabla[i][j] - factor * tabla[fila_sale][j] for j in range(n_total)]
+            b_col[i] = b_col[i] - factor * b_col[fila_sale]
+        signo = "-" if factor >= 0 else "+"
+        print(f"{etiquetas[i]} NUEVA = {_fila_texto(vieja)} {signo}{fmt(abs(factor))}"
+              f"{_fila_texto(pivote)} = {_fila_texto(tabla[i] + [b_col[i]])}")
+
+    # 3) Fila Cj-Zj: misma operación, con factor = Cj-Zj de la columna que entra.
+    f_m, f_c = cj_zj_m[col_entra], cj_zj_c[col_entra]
+    nueva_m = [v - f_m * p for v, p in zip(cj_zj_m, tabla[fila_sale])]
+    nueva_c = [v - f_c * p for v, p in zip(cj_zj_c, tabla[fila_sale])]
+    print(f"Cj-Zj NUEVA = {_fila_texto_m(cj_zj_m, cj_zj_c)} - {_texto_m(f_m, f_c, con_parentesis=True)}"
+          f"{_fila_texto(tabla[fila_sale])} = {_fila_texto_m(nueva_m, nueva_c)}")
+
+    # 4) Valor de Z: Z nueva = Z vieja + (Cj-Zj de la que entra) * b pivote.
+    b_piv = b_col[fila_sale]
+    z_m_nueva = z_m + f_m * b_piv
+    z_c_nueva = z_c + f_c * b_piv
+    print(f"Z NUEVA = {_texto_m(z_m, z_c, con_parentesis=True)} + {_texto_m(f_m, f_c, con_parentesis=True)}"
+          f"({fmt(b_piv)}) = {_texto_m(z_m_nueva, z_c_nueva, con_parentesis=False)}")
+
+
 def metodo_gran_m(c, restricciones, tipo):
     n_vars = len(c)
     m = len(restricciones)
@@ -150,6 +209,11 @@ def metodo_gran_m(c, restricciones, tipo):
         costos.append(-M if tipo_col == 'a' else 0)
 
     n_total = len(nombres)
+
+    # Costos separados en parte de M y parte constante (solo para mostrar el
+    # procedimiento con M simbólica): artificial -> (-1, 0), las demás -> (0, costo).
+    costos_m = [-1 if nombres[j].startswith('a') else 0 for j in range(n_total)]
+    costos_c = [0 if nombres[j].startswith('a') else costos[j] for j in range(n_total)]
 
     # Se arma la tabla de coeficientes y la columna b.
     tabla = [[0.0] * n_total for _ in range(m)]
@@ -242,15 +306,10 @@ def metodo_gran_m(c, restricciones, tipo):
         print(f"Entra: {nombres[col_entra]}   |   Sale: {nombres[base[fila_sale]]}   |   "
               f"Pivote: {fmt(tabla[fila_sale][col_entra])}")
 
-        piv = tabla[fila_sale][col_entra]
-        tabla[fila_sale] = [v / piv for v in tabla[fila_sale]]
-        b_col[fila_sale] = b_col[fila_sale] / piv
-
-        for i in range(m):
-            if i != fila_sale and abs(tabla[i][col_entra]) > EPS:
-                factor = tabla[i][col_entra]
-                tabla[i] = [tabla[i][j] - factor * tabla[fila_sale][j] for j in range(n_total)]
-                b_col[i] = b_col[i] - factor * b_col[fila_sale]
+        # La fila pivote toma el nombre de la variable que entra; las demás conservan el suyo
+        etiquetas = [nombres[k] for k in base]
+        etiquetas[fila_sale] = nombres[col_entra]
+        _mostrar_filas_nuevas(tabla, b_col, fila_sale, col_entra, etiquetas, costos_m, costos_c, base)
 
         base[fila_sale] = col_entra
         iteracion += 1
