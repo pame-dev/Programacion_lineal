@@ -44,15 +44,36 @@ def fila_que_sale(tabla, col):
     return min(candidatas, key=lambda i: tabla[i][-1] / tabla[i][col])
 
 
-# Pivoteo Gauss-Jordan
-def pivotear(tabla, fila, col):
+# Convierte una fila en texto tipo [1,0,1/2,6]
+def fila_texto(fila):
+    return "[" + ",".join(fmt(v) for v in fila) + "]"
+
+
+# Imprime: NOMBRE NUEVA = [fila vieja] -factor[fila pivote] = [fila nueva]
+def imprimir_fila_nueva(nombre, vieja, factor, pivote, nueva):
+    signo = "-" if factor >= 0 else "+"
+    print(f"{nombre} NUEVA = {fila_texto(vieja)} {signo}{fmt(abs(factor))}{fila_texto(pivote)} = {fila_texto(nueva)}")
+
+
+# Pivoteo Gauss-Jordan (muestra cómo se calcula cada fila nueva)
+def pivotear(tabla, fila, col, etiquetas, fila_z):
     piv = tabla[fila][col]
+    vieja_pivote = tabla[fila]
     tabla[fila] = [v / piv for v in tabla[fila]]  # divide la fila pivote por el pivote para que quede en 1
+    print(f"\n{etiquetas[fila]} NUEVA (fila pivote) = {fila_texto(vieja_pivote)} / {fmt(piv)} = {fila_texto(tabla[fila])}")
     for i in range(len(tabla)):
+        if i == fila:
+            continue
         factor = tabla[i][col]
-        if i != fila and abs(factor) > EPS:
+        vieja = tabla[i]
+        if abs(factor) > EPS:
             tabla[i] = [v - factor * p for v, p in zip(tabla[i], tabla[fila])]
-# fila nueva = fila vieja - factor * fila pivote, para que el elemento de la columna pivote sea 0
+        imprimir_fila_nueva(etiquetas[i], vieja, factor, tabla[fila], tabla[i])
+    # fila nueva = fila vieja - factor * fila pivote, para que el elemento de la columna pivote sea 0
+    # La fila Zj-Cj se actualiza igual (solo para mostrarla; luego se recalcula)
+    factor_z = fila_z[col]
+    z_nueva = [v - factor_z * p for v, p in zip(fila_z, tabla[fila])]
+    imprimir_fila_nueva("Z", fila_z, factor_z, tabla[fila], z_nueva)
 
 
 # Resuelve con simplex
@@ -102,7 +123,10 @@ def metodo_simplex(c, restricciones, tipo):
         print(f"Entra: {nombres[col_entra]}   |   Sale: {nombres[base[fila_sale]]}   |   "
               f"Pivote: {fmt(tabla[fila_sale][col_entra])}")
 
-        pivotear(tabla, fila_sale, col_entra)
+        # La fila pivote toma el nombre de la variable que entra; las demás conservan el suyo
+        etiquetas = [nombres[k] for k in base]
+        etiquetas[fila_sale] = nombres[col_entra]
+        pivotear(tabla, fila_sale, col_entra, etiquetas, zj_cj + [z_actual])
         base[fila_sale] = col_entra
         iteracion += 1
 
